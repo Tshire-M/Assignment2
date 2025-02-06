@@ -1,0 +1,60 @@
+## Statistical Computing Prac 1
+
+## Question 1
+
+```{r}
+#| echo: false
+
+df <- airquality
+
+## Identify rows with missing values
+
+missing_rows <- df[rowSums(is.na(df))> 0,]
+print(missing_rows)
+
+```
+
+The table shows the missing values as obtained from the original data.
+
+## Question 2
+
+```{r}
+#| echo: false
+
+new_df <- na.omit(df)  # Removing missing values
+
+## Mean
+mean(new_df$Temp)
+mean(new_df$Ozone)
+
+## StDev
+sd(new_df$Temp)
+sd(new_df$Ozone)
+
+## Max
+max(new_df$Temp)
+max(new_df$Ozone)
+
+## Min
+min(new_df$Temp)
+min(new_df$Ozone)
+```
+
+## Question 3
+
+```{r}
+#| echo: false
+
+dat <- cars
+
+X <- cbind(1,dat$speed) # Add a column of ones for intercept
+Y <- dat$dist
+
+beta <- solve(t(X)%*%X)%*%t(X)%*%Y
+fit <- lm(Y~X, data = dat)
+summary(fit)
+
+beta
+```
+
+The analysis shows that the calculated Beta values are consistent with the values obtained from the lm function.
