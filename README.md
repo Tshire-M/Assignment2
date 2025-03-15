@@ -1,1 +1,2 @@
-# statistical_computing
+# statistical_computing assignment 2
+
