@@ -1,0 +1,185 @@
+---
+title: "Assignment2"
+editor: visual
+author: "Tshireletso Mokobe"
+execute: 
+  warning: false
+---
+
+```{r}
+
+library(foreach)
+library(doParallel)
+library(MASS)
+library(boot)
+library(iterators)
+```
+
+## Question 1
+
+```{r}
+
+gen <- foreach(i = 1:100, .combine = c) %do% rexp(100,1)
+
+mean1 <- mean(gen)
+var1 <- var(gen)
+
+results <- rbind(mean1,var1)
+
+knitr::kable(results, digits = 3, caption = "Table for the mean and variance ")
+```
+
+## Question 2
+
+```{r}
+
+c1 <- makeCluster(detectCores()-1)
+registerDoParallel(c1)
+
+N <- 1000
+result <- system.time(foreach(i = 1:N, .packages = 'MASS', .combine = c) %dopar% {
+  sample_vals <- sample(galaxies, size = 1000,replace = T)
+  median(sample_vals)
+}
+)
+stopCluster(c1)
+
+
+result2 <- system.time(
+  for (i in 1:N){
+    samples <- sample(galaxies, size = 1000,replace = T)
+    median(samples)
+  } 
+)
+
+
+result
+result2
+
+
+```
+
+Serial processing is faster than parallel processing in this case.
+
+## Question 3
+
+```{r}
+
+
+# Function to estimate coverage probability using bootstrap CI
+cov_est <- function(n_sim = 1000, n_sample = 50, 
+                                       lambda = 1, B = 1000, conf_level = 0.95) {
+  true_mean <- 1 / lambda 
+  
+  # Setup parallel computing
+  num_cores <- detectCores() - 1
+  cl <- makeCluster(num_cores)
+  registerDoParallel(cl)
+  
+  # Monte Carlo Simulation in parallel
+  set.seed(123)  # Reproducibility
+  rslts <- foreach(i = 1:n_sim, .combine = c, .packages = c("boot")) %dopar% {
+    bootstrap_mean <- function(data, indices) {mean(data[indices])}
+    sample_data <- rexp(n_sample, rate = 1 / lambda)  # Generate sample
+    boot_out <- boot(data = sample_data, statistic = bootstrap_mean, R = B)
+    
+    ci <- boot.ci(boot_out, type = "perc")$percent[4:5]  # Extract percentile CI
+    
+    # Check if true mean is within the confidence interval
+    if (!is.null(ci)) {
+      return(ifelse(ci[1] <= true_mean & ci[2] >= true_mean, 1, 0))
+    } else {
+      return(NA)
+    }
+  }
+
+  stopCluster(cl)
+
+  coverage_prob <- mean(rslts)
+  return(coverage_prob)
+}
+
+# Run the simulation
+set.seed(123)
+coverage_estimate <- cov_est(n_sim = 1000, n_sample = 50, lambda = 1, B = 1000)
+
+# Print result
+
+# Stop parallel cluster
+stopImplicitCluster()
+
+
+```
+
+The coverage estimate is `r round(coverage_estimate, 3)` .
+
+## Question 4
+
+```{r}
+
+
+set.seed(1234)
+
+largest_values <- foreach(i = 1:3, .combine = c) %do% {
+  vec <- irnorm(5)
+  max(nextElem(vec))
+}
+
+# Print the largest values
+largest_values
+```
+
+## Question 5
+
+For parLapply:
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(1234)
+
+c2 <- makeCluster(detectCores()-1)
+registerDoParallel(c2)
+clusterEvalQ(c2, library(iterators))
+
+
+# Define the functions
+parLapply_method <- function() {
+  clusterExport(c2, "irnorm")  # Export function to cluster
+  parLapply(cl=c2, 1:3, function(i) {
+    vec <- irnorm(5)
+    max(nextElem(vec))
+  })
+}
+
+system.time(parLapply_method())
+stopCluster(c2)
+```
+
+For foreach:
+
+```{r}
+foreach_method <- function() {
+  foreach(i = 1:3, .combine = c) %do% {
+    vec <- irnorm(5)
+    max(nextElem(vec))
+  }
+}
+
+system.time(foreach_method())
+
+
+```
+
+For replicate:
+
+```{r}
+system.time(replicate_method <- function() {
+  replicate(3, {
+    vec <- irnorm(5)
+    max(nextElem(vec))
+  })
+})
+```
+
+It seems that the replicate and parLapply methods are both faster than the foreach method
